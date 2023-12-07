@@ -1,4 +1,3 @@
-use anyhow::Result;
 use std::{
     cmp::Ordering,
     fs::File,
@@ -26,36 +25,53 @@ struct Hand {
 }
 
 impl Hand {
-    fn new(line: String) -> Self {
+    fn new(line: &str, use_joker: bool) -> Self {
         let (cards, bid) = line.split_once(' ').unwrap();
-        let cards = cards.chars().map(Hand::get_card_value).collect::<Vec<_>>();
+        let cards = cards
+            .chars()
+            .map(|c| Hand::get_card_value(c, use_joker))
+            .collect::<Vec<_>>();
         let cards = [cards[0], cards[1], cards[2], cards[3], cards[4]];
 
         Hand {
-            rank: Hand::get_ranking(&cards),
+            rank: Hand::get_ranking(cards),
             cards,
             bid: bid.parse::<usize>().unwrap(),
         }
     }
 
-    fn get_card_value(c: char) -> u8 {
+    fn get_card_value(c: char, use_joker: bool) -> u8 {
+        let j = if use_joker { 1 } else { 11 };
         match c {
             'A' => 14,
             'K' => 13,
             'Q' => 12,
-            'J' => 11,
+            'J' => j,
             'T' => 10,
             '2'..='9' => c.to_digit(10).unwrap() as u8,
             _ => panic!("Invalid value"),
         }
     }
 
-    fn get_ranking(cards: &[u8; 5]) -> Ranking {
+    fn get_ranking(cards: [u8; 5]) -> Ranking {
+        // count all duplicated cards
         let mut duplicates = [0; 15];
         for card in cards {
-            duplicates[*card as usize] += 1;
+            duplicates[card as usize] += 1;
         }
 
+        // add the jokers the cards with the most duplicates
+        let jokers = duplicates[1];
+        duplicates[1] = 0;
+        let max_index = duplicates
+            .iter()
+            .enumerate()
+            .max_by(|x, y| x.1.cmp(y.1))
+            .unwrap()
+            .0;
+        duplicates[max_index] += jokers;
+
+        // check the rankings from high to low
         if duplicates.iter().any(|v| *v == 5) {
             return Ranking::FiveOfAKind;
         }
@@ -65,16 +81,15 @@ impl Hand {
         if duplicates.iter().any(|v| *v == 3) {
             if duplicates.iter().any(|v| *v == 2) {
                 return Ranking::FullHouse;
-            } else {
-                return Ranking::ThreeOfAKind;
             }
+            return Ranking::ThreeOfAKind;
         }
         if duplicates.iter().any(|v| *v == 2) {
-            if duplicates.iter().filter(|v| **v == 2).count() == 2 {
+            let two_pair = duplicates.iter().filter(|v| **v == 2).count() == 2;
+            if two_pair {
                 return Ranking::TwoPair;
-            } else {
-                return Ranking::Pair;
             }
+            return Ranking::Pair;
         }
         Ranking::HighCard
     }
@@ -98,25 +113,31 @@ impl PartialEq for Hand {
     }
 }
 
-fn main() -> Result<()> {
+fn task(filename: &str, use_joker: bool) -> usize {
+    let file = File::open(filename).unwrap();
+    let reader = BufReader::new(file);
+
+    let mut hands = reader
+        .lines()
+        .flatten()
+        .map(|line| Hand::new(line.as_str(), use_joker))
+        .collect::<Vec<_>>();
+    hands.sort();
+
+    hands
+        .iter()
+        .enumerate()
+        .map(|(i, hand)| hand.bid * (i + 1))
+        .sum()
+}
+
+fn main() {
     let filename = if DEVELOP {
         "input_small.txt"
     } else {
         "input.txt"
     };
-    let file = File::open(filename)?;
-    let reader = BufReader::new(file);
 
-    let mut hands = reader.lines().flatten().map(Hand::new).collect::<Vec<_>>();
-    hands.sort();
-
-    let product: usize = hands
-        .iter()
-        .enumerate()
-        .map(|(i, hand)| hand.bid * (i + 1))
-        .sum();
-
-    println!("Task 1: {product}");
-
-    Ok(())
+    println!("Task 1: {}", task(filename, false));
+    println!("Task 2: {}", task(filename, true));
 }
