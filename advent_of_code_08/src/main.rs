@@ -43,8 +43,13 @@ fn parse_network(lines: impl Iterator<Item = String>) -> HashMap<String, (String
         .collect()
 }
 
-fn task1(directions: &Vec<Direction>, network: &HashMap<String, (String, String)>) -> usize {
-    let mut current = String::from("AAA");
+fn calculate_steps(
+    start: String,
+    is_end: impl Fn(&String) -> bool,
+    directions: &Vec<Direction>,
+    network: &HashMap<String, (String, String)>,
+) -> u64 {
+    let mut current = start;
     for i in 1.. {
         for direction in directions {
             let node = network.get(&current).unwrap();
@@ -54,11 +59,26 @@ fn task1(directions: &Vec<Direction>, network: &HashMap<String, (String, String)
             }
         }
 
-        if current == "ZZZ" {
-            return i * directions.len();
+        if is_end(&current) {
+            return i * directions.len() as u64;
         }
     }
     unreachable!()
+}
+
+fn task1(directions: &Vec<Direction>, network: &HashMap<String, (String, String)>) -> u64 {
+    calculate_steps(String::from("AAA"), |n| n == "ZZZ", directions, network)
+}
+
+fn task2(directions: &Vec<Direction>, network: &HashMap<String, (String, String)>) -> u64 {
+    let steps = network
+        .keys()
+        .filter(|n| n.ends_with('A'))
+        .map(|key| (*key).clone())
+        .map(|node| calculate_steps(node, |n| n.ends_with('Z'), directions, network))
+        .collect::<Vec<_>>();
+
+    lcmx::lcmx(&steps).unwrap()
 }
 
 fn main() -> Result<()> {
@@ -76,6 +96,7 @@ fn main() -> Result<()> {
     let network = parse_network(lines);
 
     println!("Task 1: {}", task1(&directions, &network));
+    println!("Task 2: {}", task2(&directions, &network));
 
     Ok(())
 }
