@@ -51,13 +51,13 @@ fn calculate_steps(
 ) -> u64 {
     let mut current = start;
     for i in 1.. {
-        for direction in directions {
-            let node = network.get(&current).unwrap();
-            current = match direction {
-                Direction::Left => node.0.to_owned(),
-                Direction::Right => node.1.to_owned(),
+        current = directions.iter().fold(current.clone(), |node, direction| {
+            let node = network.get(&node).unwrap();
+            match direction {
+                Direction::Left => node.0.clone(),
+                Direction::Right => node.1.clone(),
             }
-        }
+        });
 
         if is_end(&current) {
             return i * directions.len() as u64;
@@ -74,7 +74,7 @@ fn task2(directions: &Vec<Direction>, network: &HashMap<String, (String, String)
     let steps = network
         .keys()
         .filter(|n| n.ends_with('A'))
-        .map(|key| (*key).clone())
+        .cloned()
         .map(|node| calculate_steps(node, |n| n.ends_with('Z'), directions, network))
         .collect::<Vec<_>>();
 
@@ -92,7 +92,7 @@ fn main() -> Result<()> {
 
     let mut lines = reader.lines().flatten();
     let directions = parse_directions(lines.next().unwrap());
-    lines.next();
+    lines.next(); // skip empty line
     let network = parse_network(lines);
 
     println!("Task 1: {}", task1(&directions, &network));
