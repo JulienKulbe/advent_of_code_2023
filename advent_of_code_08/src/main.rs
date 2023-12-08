@@ -1,11 +1,18 @@
 use anyhow::Result;
+use nom::{
+    bytes::complete::tag,
+    character::complete::alphanumeric1,
+    character::complete::char,
+    sequence::{delimited, separated_pair, terminated},
+    IResult,
+};
 use std::{
     collections::HashMap,
     fs::File,
     io::{BufRead, BufReader},
 };
 
-const DEVELOP: bool = false;
+const DEVELOP: bool = true;
 
 enum Direction {
     Left,
@@ -20,34 +27,51 @@ impl Direction {
             _ => panic!("Invalid direction"),
         }
     }
+
+    fn parse_directions(line: String) -> Vec<Direction> {
+        line.chars().map(Direction::new).collect()
+    }
 }
 
-fn parse_directions(line: String) -> Vec<Direction> {
-    line.chars().map(Direction::new).collect()
-}
+struct Network(HashMap<String, (String, String)>);
 
-fn parse_network(lines: impl Iterator<Item = String>) -> HashMap<String, (String, String)> {
-    lines
-        .map(|line| {
-            let (source, destination) = line.split_once('=').unwrap();
+impl Network {
+    fn parse_network(lines: impl Iterator<Item = String>) -> Self {
+        Self(
+            lines
+                .map(|line| Network::parse_line(line.as_str()))
+                .collect(),
+        )
+    }
 
-            let destination = destination.trim().strip_prefix('(').unwrap();
-            let destination = destination.strip_suffix(')').unwrap();
-            let (left, right) = destination.split_once(',').unwrap();
+    fn parse_line(input: &str) -> (String, (String, String)) {
+        let (destination, source) = Network::split_source_from_destination(input).unwrap();
+        let (_, (first, second)) = Network::parse_route(destination).unwrap();
+        (source.to_owned(), (first.to_owned(), second.to_owned()))
+    }
 
-            (
-                source.trim().to_owned(),
-                (left.trim().to_owned(), right.trim().to_owned()),
-            )
-        })
-        .collect()
+    fn split_source_from_destination(input: &str) -> IResult<&str, &str> {
+        terminated(alphanumeric1, tag(" = "))(input)
+    }
+
+    fn parse_route(input: &str) -> IResult<&str, (&str, &str)> {
+        delimited(
+            char('('),
+            separated_pair(alphanumeric1, tag(", "), alphanumeric1),
+            char(')'),
+        )(input)
+    }
+
+    fn get(&self, node: &str) -> Option<&(String, String)> {
+        self.0.get(node)
+    }
 }
 
 fn calculate_steps(
     start: String,
     is_end: impl Fn(&String) -> bool,
     directions: &Vec<Direction>,
-    network: &HashMap<String, (String, String)>,
+    network: &Network,
 ) -> u64 {
     let mut current = start;
     for i in 1.. {
@@ -66,12 +90,13 @@ fn calculate_steps(
     unreachable!()
 }
 
-fn task1(directions: &Vec<Direction>, network: &HashMap<String, (String, String)>) -> u64 {
+fn task1(directions: &Vec<Direction>, network: &Network) -> u64 {
     calculate_steps(String::from("AAA"), |n| n == "ZZZ", directions, network)
 }
 
-fn task2(directions: &Vec<Direction>, network: &HashMap<String, (String, String)>) -> u64 {
+fn task2(directions: &Vec<Direction>, network: &Network) -> u64 {
     let steps = network
+        .0
         .keys()
         .filter(|n| n.ends_with('A'))
         .cloned()
@@ -91,11 +116,11 @@ fn main() -> Result<()> {
     let reader = BufReader::new(file);
 
     let mut lines = reader.lines().flatten();
-    let directions = parse_directions(lines.next().unwrap());
+    let directions = Direction::parse_directions(lines.next().unwrap());
     lines.next(); // skip empty line
-    let network = parse_network(lines);
+    let network = Network::parse_network(lines);
 
-    println!("Task 1: {}", task1(&directions, &network));
+    //println!("Task 1: {}", task1(&directions, &network));
     println!("Task 2: {}", task2(&directions, &network));
 
     Ok(())
