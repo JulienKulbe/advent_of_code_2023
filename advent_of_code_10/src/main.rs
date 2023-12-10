@@ -118,7 +118,7 @@ impl FloodMap {
 
     fn get_closed_tiles(&self) -> usize {
         let mut sum = 0;
-        for row in self.map.iter() {
+        for row in &self.map {
             for tile in row {
                 if *tile == Tile::Closed {
                     sum += 1;
@@ -131,7 +131,7 @@ impl FloodMap {
 
 impl fmt::Display for FloodMap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for row in self.map.iter() {
+        for row in &self.map {
             for tail in row {
                 let c = match tail {
                     Tile::Closed => 'I',
@@ -139,7 +139,7 @@ impl fmt::Display for FloodMap {
                     Tile::Loop => '=',
                     Tile::Path => ' ',
                 };
-                write!(f, "{c}")?
+                write!(f, "{c}")?;
             }
             writeln!(f)?;
         }
