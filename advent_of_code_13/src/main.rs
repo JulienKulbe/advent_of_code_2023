@@ -27,15 +27,15 @@ impl Map {
         self.heigth += 1;
     }
 
-    fn get_symmetry(&self) -> usize {
+    fn get_symmetry(&self, has_smudge: bool) -> usize {
         for column in 0..self.width - 1 {
-            if self.check_vertical_symmetry(column) {
+            if self.check_vertical_symmetry(column, has_smudge) {
                 return column + 1;
             }
         }
 
         for row in 0..self.heigth - 1 {
-            if self.check_horizontal_symmetry(row) {
+            if self.check_horizontal_symmetry(row, has_smudge) {
                 return (row + 1) * 100;
             }
         }
@@ -43,37 +43,47 @@ impl Map {
         panic!("no symmetry found");
     }
 
-    fn check_vertical_symmetry(&self, column: usize) -> bool {
+    fn check_vertical_symmetry(&self, column: usize, has_smudge: bool) -> bool {
+        let mut found_smudge = !has_smudge;
+
         for i in 0.. {
             let left = column - i;
             let right = column + 1 + i;
 
             for y in 0..self.heigth {
                 if self.data[y][left] != self.data[y][right] {
-                    return false;
+                    if found_smudge {
+                        return false;
+                    }
+                    found_smudge = true;
                 }
             }
 
             if left == 0 || right == self.width - 1 {
-                return true;
+                return found_smudge;
             }
         }
         unreachable!()
     }
 
-    fn check_horizontal_symmetry(&self, row: usize) -> bool {
+    fn check_horizontal_symmetry(&self, row: usize, has_smudge: bool) -> bool {
+        let mut found_smudge = !has_smudge;
+
         for i in 0.. {
             let top = row - i;
             let bottom = row + 1 + i;
 
             for x in 0..self.width {
                 if self.data[top][x] != self.data[bottom][x] {
-                    return false;
+                    if found_smudge {
+                        return false;
+                    }
+                    found_smudge = true;
                 }
             }
 
             if top == 0 || bottom == self.heigth - 1 {
-                return true;
+                return found_smudge;
             }
         }
         unreachable!()
@@ -101,8 +111,11 @@ fn main() -> Result<()> {
     }
     maps.push(current_map);
 
-    let sum: usize = maps.iter().map(|m| m.get_symmetry()).sum();
+    let sum: usize = maps.iter().map(|m| m.get_symmetry(false)).sum();
     println!("Task 1: {sum}");
+
+    let sum: usize = maps.iter().map(|m| m.get_symmetry(true)).sum();
+    println!("Task 2: {sum}");
 
     Ok(())
 }
