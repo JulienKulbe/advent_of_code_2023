@@ -42,12 +42,26 @@ fn main() -> Result<()> {
     } else {
         "input.txt"
     };
-    let file = File::open(filename)?;
-    let reader = BufReader::new(file);
 
-    let sum: usize = reader.lines().flatten().map(calculate_arrangements).sum();
+    // {
+    //     let file = File::open(filename)?;
+    //     let reader = BufReader::new(file);
 
-    println!("Task 1: {sum}");
+    //     let sum: usize = reader.lines().flatten().map(calculate_arrangements).sum();
+    //     println!("Task 1: {sum}");
+    // }
+    {
+        let file = File::open(filename)?;
+        let reader = BufReader::new(file);
+
+        let sum: usize = reader
+            .lines()
+            .flatten()
+            .enumerate()
+            .map(|(i, line)| calculate_multiply_arrangements(line, i, 5))
+            .sum();
+        println!("Task 2: {sum}");
+    }
 
     Ok(())
 }
@@ -59,9 +73,30 @@ fn calculate_arrangements(line: String) -> usize {
         .split(',')
         .map(|g| g.parse::<u32>().unwrap())
         .collect::<Vec<_>>();
-    let count = get_different_arrangements(tokens, &groups).unwrap();
 
-    //println!("{line}: {count}\n");
+    get_different_arrangements(tokens, &groups).unwrap()
+}
+
+fn calculate_multiply_arrangements(line: String, i: usize, multiply: usize) -> usize {
+    let (tokens, groups) = line.split_once(' ').unwrap();
+    let mut tokens = tokens.chars().map(Token::new).collect::<Vec<_>>();
+    tokens.push(Token::Unknown);
+    let mut multipied_tokens = (0..multiply)
+        .flat_map(|_| tokens.clone())
+        .collect::<Vec<_>>();
+    multipied_tokens.pop();
+
+    let groups = groups
+        .split(',')
+        .map(|g| g.parse::<u32>().unwrap())
+        .collect::<Vec<_>>();
+    let multipied_groups = (0..multiply)
+        .flat_map(|_| groups.clone())
+        .collect::<Vec<_>>();
+
+    let count = get_different_arrangements(multipied_tokens, &multipied_groups).unwrap();
+
+    println!("{i} {line}: {count}\n");
     count
 }
 
@@ -121,6 +156,14 @@ fn are_tokens_valid(tokens: &Vec<Token>, groups: &Vec<u32>) -> bool {
         }
 
         if token_groups.len() != groups.len() {
+            return false;
+        }
+    } else if let Some(group) = current_group {
+        if token_groups.len() >= groups.len() {
+            return false;
+        }
+        let reference = groups[token_groups.len()];
+        if group > reference {
             return false;
         }
     }
