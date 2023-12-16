@@ -182,28 +182,52 @@ fn main() {
         "input.txt"
     };
 
-    // read file content into a map
-    let map = Map::new(filename);
+    {
+        let map = Map::new(filename);
+        println!(
+            "Task 1: {}",
+            calculate_visited_fields(&map, Beam::new(0, 0, Direction::Right))
+        );
+    }
+    {
+        let map = Map::new(filename);
 
-    // creat a visited map (enum flags)
+        let mut max = 0;
+        for x in 0..map.width() {
+            max = max.max(calculate_visited_fields(
+                &map,
+                Beam::new(x, 0, Direction::Down),
+            ));
+            max = max.max(calculate_visited_fields(
+                &map,
+                Beam::new(x, map.heigth() - 1, Direction::Up),
+            ));
+        }
+        for y in 0..map.heigth() {
+            max = max.max(calculate_visited_fields(
+                &map,
+                Beam::new(0, y, Direction::Right),
+            ));
+            max = max.max(calculate_visited_fields(
+                &map,
+                Beam::new(map.width() - 1, y, Direction::Left),
+            ));
+        }
+
+        println!("Task 2: {max}");
+    }
+}
+
+fn calculate_visited_fields(map: &Map, current: Beam) -> usize {
     let mut visited = Visited::new(map.width(), map.heigth());
-
-    // visit map with light beam
-    visit_field(&map, Beam::new(0, 0, Direction::Right), &mut visited);
-
-    // count visited fields
-    println!("Task 1: {}", visited.count());
+    visit_field(map, current, &mut visited);
+    visited.count()
 }
 
 fn visit_field(map: &Map, current: Beam, visited: &mut Visited) {
     if visited.has_visited(&current) {
         return;
     }
-
-    // println!(
-    //     "add visited: {:?} {:?}",
-    //     current.position, current.direction
-    // );
 
     visited.visit(&current);
 
