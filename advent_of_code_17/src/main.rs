@@ -2,6 +2,7 @@ use anyhow::Result;
 use priority_queue::DoublePriorityQueue;
 use std::{
     collections::HashSet,
+    fmt::Debug,
     fs::File,
     hash::Hash,
     io::{BufRead, BufReader},
@@ -48,7 +49,7 @@ enum Direction {
     Down,
 }
 
-#[derive(Debug, Eq)]
+#[derive(Eq)]
 struct Node {
     position: Position,
     predecessor: Position,
@@ -92,6 +93,26 @@ impl PartialEq for Node {
     }
 }
 
+impl Debug for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("")
+            .field("position", &self.position)
+            //.field("predecessor", &self.predecessor)
+            //.field("directions", &self.directions)
+            .finish()
+    }
+}
+
+impl From<Position> for Node {
+    fn from(position: Position) -> Self {
+        Self {
+            position,
+            predecessor: (0, 0),
+            directions: Vec::new(),
+        }
+    }
+}
+
 struct SearchAStar {
     map: Map,
     open_list: DoublePriorityQueue<Node, u64>,
@@ -115,13 +136,38 @@ impl SearchAStar {
 
         while let Some((current_node, score)) = self.open_list.pop_min() {
             if current_node.position == destination {
-                return score;
+                return self.get_distance(&current_node, (0, 0));
             }
 
             self.expand_node(&current_node, score);
             self.closed_list.insert(current_node);
+
+            // println!("Closed list: {:?}", self.closed_list);
+            // println!("Open list:");
+            // for (node, score) in self.open_list.iter() {
+            //     println!("\t{node:?}: {score}");
+            // }
+            // println!();
         }
         panic!("no path found");
+    }
+
+    fn get_distance<'a>(&'a self, mut current: &'a Node, start: Position) -> u64 {
+        let mut distance = 0;
+        while current.position != start {
+            distance += self.map.get(current.position) as u64;
+
+            println!(
+                "{current:?}: {} ({distance})",
+                self.map.get(current.position)
+            );
+
+            current = self
+                .closed_list
+                .get(&Node::from(current.predecessor))
+                .unwrap();
+        }
+        distance
     }
 
     fn expand_node(&mut self, current: &Node, current_score: u64) {
