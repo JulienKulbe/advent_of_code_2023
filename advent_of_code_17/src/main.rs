@@ -41,18 +41,17 @@ impl Map {
 
 type Position = (usize, usize);
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 enum Direction {
     Left,
     Right,
-    Up,
     Down,
 }
 
 #[derive(Eq)]
 struct Node {
     position: Position,
-    predecessor: Position,
+    score: u64,
     directions: Vec<Direction>,
 }
 
@@ -60,13 +59,13 @@ impl Node {
     fn start() -> Self {
         Self {
             position: (0, 0),
-            predecessor: (0, 0),
+            score: 0,
             directions: Vec::new(),
         }
     }
 
-    fn new(position: Position, predecessor: &Node, direction: Direction) -> Self {
-        // copy the directions from the predecessor and ann the current diretion
+    fn new(position: Position, predecessor: &Node, score: u64, direction: Direction) -> Self {
+        // copy the directions from the predecessor and the current diretion
         let mut directions = predecessor.directions.clone();
         if directions.len() == 3 {
             directions.remove(0);
@@ -75,7 +74,7 @@ impl Node {
 
         Self {
             position,
-            predecessor: predecessor.position,
+            score: predecessor.score + score,
             directions,
         }
     }
@@ -84,12 +83,13 @@ impl Node {
 impl Hash for Node {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.position.hash(state);
+        self.directions.hash(state);
     }
 }
 
 impl PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
-        self.position == other.position
+        (self.position, &self.directions) == (other.position, &self.directions)
     }
 }
 
@@ -97,19 +97,9 @@ impl Debug for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("")
             .field("position", &self.position)
-            //.field("predecessor", &self.predecessor)
-            //.field("directions", &self.directions)
+            .field("score", &self.score)
+            .field("directions", &self.directions)
             .finish()
-    }
-}
-
-impl From<Position> for Node {
-    fn from(position: Position) -> Self {
-        Self {
-            position,
-            predecessor: (0, 0),
-            directions: Vec::new(),
-        }
     }
 }
 
@@ -134,52 +124,43 @@ impl SearchAStar {
         // add starting node at positon 0,0
         self.open_list.push(Node::start(), 0);
 
-        while let Some((current_node, score)) = self.open_list.pop_min() {
-            if current_node.position == destination {
-                return self.get_distance(&current_node, (0, 0));
-            }
+        while let Some((current_node, _)) = self.open_list.pop_min() {
+            // if current_node.position == destination {
+            //     return current_node.score;
+            // }
 
-            self.expand_node(&current_node, score);
+            self.expand_node(&current_node);
             self.closed_list.insert(current_node);
 
-            // println!("Closed list: {:?}", self.closed_list);
+            // println!("Closed list:");
+            // for node in self.closed_list.iter() {
+            //     println!("\t{node:?}: {}", node.score);
+            // }
             // println!("Open list:");
             // for (node, score) in self.open_list.iter() {
             //     println!("\t{node:?}: {score}");
             // }
             // println!();
         }
-        panic!("no path found");
+
+        self.closed_list
+            .iter()
+            .filter(|node| node.position == destination)
+            .map(|node| node.score)
+            .min()
+            .unwrap()
     }
 
-    fn get_distance<'a>(&'a self, mut current: &'a Node, start: Position) -> u64 {
-        let mut distance = 0;
-        while current.position != start {
-            distance += self.map.get(current.position) as u64;
-
-            println!(
-                "{current:?}: {} ({distance})",
-                self.map.get(current.position)
-            );
-
-            current = self
-                .closed_list
-                .get(&Node::from(current.predecessor))
-                .unwrap();
-        }
-        distance
-    }
-
-    fn expand_node(&mut self, current: &Node, current_score: u64) {
+    fn expand_node(&mut self, current: &Node) {
         for successor in self.get_successors(current) {
             if self.closed_list.contains(&successor) {
                 continue;
             }
 
-            let tentative_g = current_score + self.map.get(successor.position) as u64;
+            let tentative_g = successor.score;
 
-            if let Some(successor_score) = self.open_list.get_priority(&successor) {
-                if tentative_g >= *successor_score {
+            if let Some((node, _)) = self.open_list.get(&successor) {
+                if tentative_g >= node.score {
                     continue;
                 }
                 self.open_list.remove(&successor);
@@ -193,40 +174,30 @@ impl SearchAStar {
     fn get_successors(&self, current: &Node) -> Vec<Node> {
         let mut successors = Vec::new();
 
-        if current.position.0 > 0 && self.check_directions(current, Direction::Left) {
-            successors.push(Node::new(
+        if current.position.0 > 0 {
+            successors.push((
                 (current.position.0 - 1, current.position.1),
-                current,
                 Direction::Left,
             ));
         }
-        if current.position.0 < self.map.width() - 1
-            && self.check_directions(current, Direction::Right)
-        {
-            successors.push(Node::new(
+        if current.position.0 < self.map.width() - 1 {
+            successors.push((
                 (current.position.0 + 1, current.position.1),
-                current,
                 Direction::Right,
             ));
         }
-        if current.position.1 > 0 && self.check_directions(current, Direction::Up) {
-            successors.push(Node::new(
-                (current.position.0, current.position.1 - 1),
-                current,
-                Direction::Up,
-            ));
-        }
-        if current.position.1 < self.map.heigth() - 1
-            && self.check_directions(current, Direction::Down)
-        {
-            successors.push(Node::new(
+        if current.position.1 < self.map.heigth() - 1 {
+            successors.push((
                 (current.position.0, current.position.1 + 1),
-                current,
                 Direction::Down,
             ));
         }
 
         successors
+            .iter()
+            .filter(|(_, dir)| self.check_directions(current, *dir))
+            .map(|(pos, dir)| Node::new(*pos, current, self.map.get(*pos) as u64, *dir))
+            .collect()
     }
 
     fn check_directions(&self, current: &Node, direction: Direction) -> bool {
