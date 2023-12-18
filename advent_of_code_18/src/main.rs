@@ -5,7 +5,7 @@ use std::{
     io::{BufRead, BufReader},
 };
 
-const DEVELOP: bool = false;
+const DEVELOP: bool = true;
 
 #[derive(Debug, Clone, Copy)]
 enum Direction {
@@ -22,6 +22,18 @@ impl From<&str> for Direction {
             "L" => Direction::Left,
             "U" => Direction::Up,
             "D" => Direction::Down,
+            _ => panic!("invalid direction"),
+        }
+    }
+}
+
+impl From<u32> for Direction {
+    fn from(c: u32) -> Self {
+        match c {
+            0 => Direction::Right,
+            2 => Direction::Left,
+            3 => Direction::Up,
+            1 => Direction::Down,
             _ => panic!("invalid direction"),
         }
     }
@@ -92,7 +104,7 @@ struct Map {
 }
 
 impl Map {
-    fn new(filename: &str) -> Self {
+    fn new_task1(filename: &str) -> Self {
         let file = File::open(filename).unwrap();
         let reader = BufReader::new(file);
 
@@ -133,10 +145,58 @@ impl Map {
         }
     }
 
+    fn new_task2(filename: &str) -> Self {
+        let file = File::open(filename).unwrap();
+        let reader = BufReader::new(file);
+
+        let mut horizontal = Lines::new();
+        let mut vertical = Lines::new();
+        let mut x_min = 0;
+        let mut x_max = 0;
+        let mut y_min = 0;
+        let mut y_max = 0;
+        let mut current = Position::zero();
+
+        for line in reader.lines().flatten() {
+            let (direction, count) = Self::parse_color(line.as_str());
+            let next = current.go_to(direction, count);
+
+            match direction {
+                Direction::Left | Direction::Right => horizontal.push(current.y, current.x, next.x),
+                Direction::Down | Direction::Up => vertical.push(current.x, current.y, next.y),
+            }
+
+            match direction {
+                Direction::Left => x_min = x_min.min(next.x),
+                Direction::Right => x_max = x_max.max(next.x),
+                Direction::Down => y_max = y_max.max(next.y),
+                Direction::Up => y_min = y_min.min(next.y),
+            }
+
+            current = next;
+        }
+
+        Self {
+            horizontal,
+            vertical,
+            x_min,
+            x_max,
+            y_min,
+            y_max,
+        }
+    }
+
     fn parse_line(line: &str) -> (Direction, i64) {
         let mut items = line.split_whitespace();
         let direction = Direction::from(items.next().unwrap());
         let count = items.next().unwrap().parse::<i64>().unwrap();
+        (direction, count)
+    }
+
+    fn parse_color(line: &str) -> (Direction, i64) {
+        let start = line.find('#').unwrap();
+        let count = i64::from_str_radix(&line[start + 1..start + 6], 16).unwrap();
+        let direction = Direction::from(line[start + 6..start + 7].parse::<u32>().unwrap());
         (direction, count)
     }
 
@@ -221,7 +281,14 @@ fn main() {
         "input.txt"
     };
 
-    let map = Map::new(filename);
-    let plan = DigPlan::new(map);
-    println!("Task 1: {}", plan.area());
+    {
+        let map = Map::new_task1(filename);
+        let plan = DigPlan::new(map);
+        println!("Task 1: {}", plan.area());
+    }
+    {
+        let map = Map::new_task2(filename);
+        let plan = DigPlan::new(map);
+        println!("Task 2: {}", plan.area());
+    }
 }
