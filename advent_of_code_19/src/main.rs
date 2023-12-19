@@ -80,11 +80,7 @@ impl Workflows {
     fn new() -> Self {
         Self(HashMap::new())
     }
-}
 
-struct Workflow(Vec<Rule>);
-
-impl Workflows {
     fn apply(&self, part: &Part) -> RuleResult {
         let mut result = RuleResult::GoTo(String::from("in"));
         while let RuleResult::GoTo(label) = result {
@@ -101,6 +97,19 @@ impl Workflows {
 
         result
     }
+
+    fn apply_range(&self, parts: &PartRange) -> PartRange {
+        let workflow = self.0.get(&String::from("in")).unwrap();
+        workflow.apply_range(parts)
+    }
+}
+
+struct Workflow(Vec<Rule>);
+
+impl Workflow {
+    fn apply_range(&self, parts: &PartRange) -> PartRange {
+        for rule in self.0.iter() {}
+    }
 }
 
 enum Rule {
@@ -114,6 +123,10 @@ impl Rule {
             Rule::Decision(decision) => decision.decide(part),
             Rule::Result(result) => Some(result.clone()),
         }
+    }
+
+    fn apply_range(&self, part: &mut PartRange) -> (PartRange, RuleResult) {
+        todo!()
     }
 }
 
@@ -243,6 +256,29 @@ impl Part {
     }
 }
 
+struct PartRange {
+    cool_looking: Vec<i32>,
+    musical: Vec<i32>,
+    aerodynamic: Vec<i32>,
+    shiny: Vec<i32>,
+}
+
+impl PartRange {
+    fn new() -> Self {
+        let values: Vec<i32> = (1..4000).collect();
+        PartRange {
+            cool_looking: values.clone(),
+            musical: values.clone(),
+            aerodynamic: values.clone(),
+            shiny: values,
+        }
+    }
+
+    fn combinations(&self) -> usize {
+        self.cool_looking.len() * self.musical.len() * self.aerodynamic.len() * self.shiny.len()
+    }
+}
+
 fn main() {
     let filename = if DEVELOP {
         "input_small.txt"
@@ -252,14 +288,19 @@ fn main() {
 
     let (workflows, machine_parts) = Parser::parse(filename);
 
-    let ratings: i32 = machine_parts
-        .0
-        .iter()
-        .filter(|part| workflows.apply(part) == RuleResult::Accepted)
-        .map(|part| part.rating())
-        .sum();
-
-    println!("Task 1: {ratings}");
+    {
+        let ratings: i32 = machine_parts
+            .0
+            .iter()
+            .filter(|part| workflows.apply(part) == RuleResult::Accepted)
+            .map(|part| part.rating())
+            .sum();
+        println!("Task 1: {ratings}");
+    }
+    {
+        let parts = workflows.apply_range(&PartRange::new());
+        println!("Task 2: {}", parts.combinations());
+    }
 
     println!();
 }
