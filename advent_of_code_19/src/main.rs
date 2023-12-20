@@ -108,7 +108,10 @@ struct Workflow(Vec<Rule>);
 
 impl Workflow {
     fn apply_range(&self, parts: &PartRange) -> PartRange {
-        for rule in self.0.iter() {}
+        // for rule in self.0.iter() {
+
+        // }
+        todo!()
     }
 }
 
