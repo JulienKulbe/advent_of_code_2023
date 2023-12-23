@@ -40,6 +40,7 @@ struct Modules {
     modules: HashMap<String, Module>,
     low_pulses: usize,
     high_pulses: usize,
+    low_pulses_to_rx: u32,
 }
 
 impl Modules {
@@ -48,6 +49,7 @@ impl Modules {
             modules: HashMap::new(),
             low_pulses: 0,
             high_pulses: 0,
+            low_pulses_to_rx: 0,
         }
     }
 
@@ -60,6 +62,7 @@ impl Modules {
     }
 
     fn init(&mut self) {
+        self.low_pulses_to_rx = 0;
         let mut pulses = VecDeque::new();
         pulses.push_back(Pulse::init());
 
@@ -71,7 +74,6 @@ impl Modules {
                     Module::new(&pulse.to, ModuleType::Broadcast, Vec::new()),
                 )
             }
-
             //println!("{} -{:?}-> {}", pulse.from, pulse.state, pulse.to);
 
             let module = self.get_module(&pulse.to);
@@ -90,6 +92,10 @@ impl Modules {
                 State::Low => self.low_pulses += 1,
             }
             //println!("{} -{:?}-> {}", pulse.from, pulse.state, pulse.to);
+
+            if pulse.to == "rx" && pulse.state == State::Low {
+                self.low_pulses_to_rx += 1;
+            }
 
             let module = self.get_module(&pulse.to);
             let mut received = module.send_pulse(&pulse);
@@ -248,11 +254,25 @@ fn main() {
     };
 
     let mut modules = Parser::parse_file(filename);
-    modules.init();
 
-    println!("\nPush Button:");
-    for _ in 0..1000 {
-        modules.push_button();
+    // {
+    //     modules.init();
+
+    //     println!("\nPush Button:");
+    //     for _ in 0..1000 {
+    //         modules.push_button();
+    //     }
+    //     println!("Task 1: {}", modules.high_pulses * modules.low_pulses);
+    // }
+    {
+        modules.init();
+        for i in 1.. {
+            modules.push_button();
+
+            if modules.low_pulses_to_rx > 0 {
+                println!("Task 2: {i} ({})", modules.low_pulses_to_rx);
+                break;
+            }
+        }
     }
-    println!("Task 1: {}", modules.high_pulses * modules.low_pulses);
 }
