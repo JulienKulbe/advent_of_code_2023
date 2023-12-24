@@ -8,7 +8,7 @@ use std::{
     io::{BufRead, BufReader},
 };
 
-const DEVELOP: bool = true;
+const DEVELOP: bool = false;
 
 struct Map(Vec<Vec<u8>>);
 
@@ -46,7 +46,10 @@ enum Direction {
     Left,
     Right,
     Down,
+    Up,
 }
+
+impl Direction {}
 
 #[derive(Eq)]
 struct Node {
@@ -125,9 +128,11 @@ impl SearchAStar {
         self.open_list.push(Node::start(), 0);
 
         while let Some((current_node, _)) = self.open_list.pop_min() {
-            // if current_node.position == destination {
-            //     return current_node.score;
-            // }
+            if current_node.position == destination {
+                return current_node.score;
+            }
+
+            //println!("\t{current_node:?}");
 
             self.expand_node(&current_node);
             self.closed_list.insert(current_node);
@@ -140,15 +145,16 @@ impl SearchAStar {
             // for (node, score) in self.open_list.iter() {
             //     println!("\t{node:?}: {score}");
             // }
-            // println!();
+            //println!();
         }
 
-        self.closed_list
-            .iter()
-            .filter(|node| node.position == destination)
-            .map(|node| node.score)
-            .min()
-            .unwrap()
+        unreachable!()
+        // self.closed_list
+        //     .iter()
+        //     .filter(|node| node.position == destination)
+        //     .map(|node| node.score)
+        //     .min()
+        //     .unwrap()
     }
 
     fn expand_node(&mut self, current: &Node) {
@@ -174,19 +180,26 @@ impl SearchAStar {
     fn get_successors(&self, current: &Node) -> Vec<Node> {
         let mut successors = Vec::new();
 
-        if current.position.0 > 0 {
+        if current.position.0 > 0 && current.directions.last() != Some(&Direction::Right) {
             successors.push((
                 (current.position.0 - 1, current.position.1),
                 Direction::Left,
             ));
         }
-        if current.position.0 < self.map.width() - 1 {
+        if current.position.0 < self.map.width() - 1
+            && current.directions.last() != Some(&Direction::Left)
+        {
             successors.push((
                 (current.position.0 + 1, current.position.1),
                 Direction::Right,
             ));
         }
-        if current.position.1 < self.map.heigth() - 1 {
+        if current.position.1 > 0 && current.directions.last() != Some(&Direction::Down) {
+            successors.push(((current.position.0, current.position.1 - 1), Direction::Up));
+        }
+        if current.position.1 < self.map.heigth() - 1
+            && current.directions.last() != Some(&Direction::Up)
+        {
             successors.push((
                 (current.position.0, current.position.1 + 1),
                 Direction::Down,
